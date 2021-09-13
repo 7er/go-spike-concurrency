@@ -2,12 +2,9 @@ package logger
 
 import (
 	"fmt"
-	"sync"
+	"go-spike-concurrency/command"
 )
 
-type Command interface {
-	Execute()
-}
 
 type logCommand struct {
 	entry       string
@@ -22,41 +19,10 @@ func (self *logCommand) Execute() {
 	self.doneChannel <- true
 }
 
-type Logger struct {
-	inputChannel chan Command
-	wg           sync.WaitGroup
-}
-
-func NewLogger() *Logger {
-	input := make(chan Command)
-	result := Logger{inputChannel: input}
-	result.Start()
-	return &result
-}
-
-func (self *Logger) serve() {
-	for command := range self.inputChannel {
-		command.Execute()
-	}
-	self.wg.Done()
-
-}
-
-func (self *Logger) Start() {
-	self.wg.Add(1)
-	go self.serve()
-}
-
-func (self *Logger) Close() {
-	close(self.inputChannel)
-	self.wg.Wait()
-
-}
-
-func (self *Logger) Log(entry string) {
+func Log(server *command.CommandServer, entry string) {
 	// send entry to log server
 	ch := make(chan bool)
 	command := logCommand{entry: entry, doneChannel: ch}
-	self.inputChannel <- &command
+	server.ScheduleCommand(&command)
 	<-ch
 }
